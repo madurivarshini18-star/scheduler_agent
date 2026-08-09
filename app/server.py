@@ -241,8 +241,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);min-height:100vh;colo
 }
 .count-pill{
   font-size:.68rem;font-weight:600;padding:3px 9px;border-radius:99px;
-  background:rgba(52,211,153,0.1);color:var(--success);
-  border:1px solid rgba(52,211,153,0.2);
+  background:rgba(255,255,255,0.07);color:var(--text);
+  border:1px solid rgba(255,255,255,0.15);
 }
 
 .content{padding:22px 26px;overflow-y:auto;flex:1}
@@ -647,7 +647,7 @@ function renderEvents() {
       const {time, ampm} = fmtTime(e.time);
       const safeT = (e.title||'(no title)').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const safeD = (e.description||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const safeJs = (e.title||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const safeJs = (e.title||'').replace(/[\\]/g,'').replace(/'/g,' ');
       html += `<div class="evt-card" style="--card-color:${c}">
         <div class="evt-time-col">
           <div class="evt-time">${time}</div>
