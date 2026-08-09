@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: scheduler-rag
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.server:app --host 0.0.0.0 --port $PORT --workers 1
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_INDEX_NAME
+        value: schedule-agent
+      - key: PINECONE_CLOUD
+        value: aws
+      - key: PINECONE_REGION
+        value: us-east-1
+      - key: EMBEDDING_MODEL
+        value: BAAI/bge-small-en-v1.5
+      - key: PYTHON_VERSION
+        value: 3.11.9
