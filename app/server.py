@@ -647,7 +647,7 @@ function renderEvents() {
       const {time, ampm} = fmtTime(e.time);
       const safeT = (e.title||'(no title)').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const safeD = (e.description||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const safeJs = (e.title||'').replace(/[\\]/g,'').replace(/'/g,' ');
+      const safeJs = encodeURIComponent(e.title||'');
       html += `<div class="evt-card" style="--card-color:${c}">
         <div class="evt-time-col">
           <div class="evt-time">${time}</div>
@@ -659,7 +659,7 @@ function renderEvents() {
           ${safeD?`<div class="evt-desc">${safeD}</div>`:''}
         </div>
         <span class="evt-badge" style="background:${bg};color:${c};border-color:${bd}">${lbl}</span>
-        <button class="del-btn" title="Delete" onclick="delEvent('${e.id}','${safeJs}')">&#128465;</button>
+        <button class="del-btn" title="Delete" onclick="delEvent('${e.id}',decodeURIComponent('${safeJs}'))">&#128465;</button>
       </div>`;
     });
     html += '</div></div>';
