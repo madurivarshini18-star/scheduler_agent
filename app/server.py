@@ -1,4 +1,3 @@
-import json
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -119,662 +118,535 @@ def delete_event(event_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-_HTML_PART1 = """<!DOCTYPE html>
+_UI = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Schedule Assistant</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<title>MyPlanner</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+*{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0a0f1e;
-  --surface:#0f1629;
-  --surface2:#151e38;
-  --surface3:#1c2848;
-  --border:#1e2d50;
-  --accent:#38bdf8;
-  --accent2:#0ea5e9;
-  --accent-light:#7dd3fc;
-  --accent-glow:rgba(56,189,248,0.2);
-  --pink:#f472b6;
-  --cyan:#34d399;
-  --text:#e2eeff;
-  --text-muted:#5a7aaa;
-  --text-dim:#243660;
-  --danger:#f87171;
-  --success:#34d399;
-  --warning:#fbbf24;
-  --radius:16px;
-  --radius-sm:10px;
-  --shadow:0 8px 40px rgba(0,0,0,0.8);
-  --shadow-sm:0 2px 16px rgba(0,0,0,0.6);
-  --transition:.18s cubic-bezier(.4,0,.2,1);
+  --bg:#0f0717;
+  --card:#1a0f2e;
+  --card2:#221340;
+  --border:#2e1a52;
+  --accent:#c084fc;
+  --accent2:#e879f9;
+  --glow:rgba(192,132,252,0.25);
+  --rose:#fb7185;
+  --teal:#2dd4bf;
+  --amber:#fbbf24;
+  --text:#f1e8ff;
+  --muted:#8b6faa;
+  --dim:#3d2660;
+  --danger:#f43f5e;
+  --ok:#4ade80;
+  --r:14px;--rsm:9px;
+  --tr:.16s ease;
 }
-body{font-family:'Inter',sans-serif;background:var(--bg);min-height:100vh;color:var(--text);overflow:hidden}
-.app{display:grid;grid-template-columns:268px 1fr;height:100vh}
+body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 
-/* ── SCROLLBAR ── */
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
-::-webkit-scrollbar-thumb:hover{background:var(--accent)}
-
-/* ── SIDEBAR ── */
-.sidebar{
-  background:#070c1a;
-  border-right:1px solid var(--border);
-  display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;
-}
-.logo-wrap{
-  padding:24px 20px 20px;
+/* ── TOPNAV ── */
+nav{
+  background:rgba(15,7,23,0.92);
+  backdrop-filter:blur(16px);
   border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:12px;
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 32px;height:62px;
 }
-.logo-icon{
-  width:40px;height:40px;border-radius:12px;
-  background:linear-gradient(135deg,var(--accent),var(--cyan));
+.brand{display:flex;align-items:center;gap:10px}
+.brand-dot{
+  width:34px;height:34px;border-radius:10px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
   display:flex;align-items:center;justify-content:center;
-  font-size:1.2rem;flex-shrink:0;
-  box-shadow:0 0 18px var(--accent-glow);
+  font-size:1.1rem;box-shadow:0 0 16px var(--glow);
 }
-.logo-text{font-size:.95rem;font-weight:700;color:var(--text);line-height:1.2}
-.logo-sub{font-size:.68rem;color:var(--text-muted);font-weight:400;margin-top:1px}
+.brand-name{font-size:1rem;font-weight:700;letter-spacing:-.02em;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.nav-tabs{display:flex;gap:4px}
+.tab{
+  padding:7px 18px;border:none;background:none;
+  color:var(--muted);font-size:.82rem;font-weight:500;
+  cursor:pointer;border-radius:var(--rsm);
+  transition:var(--tr);font-family:inherit;
+}
+.tab:hover{background:var(--card2);color:var(--text)}
+.tab.active{background:rgba(192,132,252,0.15);color:var(--accent);border:1px solid rgba(192,132,252,0.3)}
+.nav-right{display:flex;align-items:center;gap:10px}
+.date-chip{font-size:.72rem;color:var(--muted);background:var(--card);
+  padding:5px 12px;border-radius:99px;border:1px solid var(--border)}
 
-.ns{
-  padding:20px 16px 6px;
-  font-size:.62rem;font-weight:700;color:var(--text-dim);
-  letter-spacing:.1em;text-transform:uppercase;
-}
-.nav-btn{
-  display:flex;align-items:center;gap:10px;
-  width:calc(100% - 16px);margin:2px 8px;
-  padding:10px 14px;background:none;border:none;
-  color:var(--text-muted);font-size:.83rem;font-weight:500;
-  cursor:pointer;border-radius:var(--radius-sm);text-align:left;
-  transition:var(--transition);font-family:inherit;
-}
-.nav-btn:hover{background:var(--surface2);color:var(--text)}
-.nav-btn.active{
-  background:rgba(56,189,248,0.1);
-  color:var(--accent);
-  box-shadow:inset 0 0 0 1px rgba(56,189,248,0.28);
-}
-.nav-icon{font-size:1rem;width:20px;text-align:center}
+/* ── PAGE ── */
+.page{display:none;padding:28px 32px;max-width:1100px;margin:0 auto}
+.page.active{display:block}
 
-.cat-btn{
-  display:flex;align-items:center;gap:9px;
-  margin:1px 8px;padding:7px 14px;
-  background:none;border:none;color:var(--text-muted);font-size:.78rem;font-weight:400;
-  cursor:pointer;border-radius:8px;text-align:left;
-  transition:var(--transition);width:calc(100% - 16px);font-family:inherit;
+/* ── HERO ── */
+.hero{
+  background:linear-gradient(135deg,#1a0f2e 0%,#0f0717 60%,#1a0a1e 100%);
+  border:1px solid var(--border);border-radius:20px;
+  padding:36px 36px 32px;margin-bottom:28px;
+  position:relative;overflow:hidden;
 }
-.cat-btn:hover{background:var(--surface2);color:var(--text)}
-.cat-btn.active{color:var(--accent);background:rgba(56,189,248,0.1)}
-.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.hero::before{
+  content:'';position:absolute;top:-60px;right:-60px;
+  width:220px;height:220px;border-radius:50%;
+  background:radial-gradient(circle,rgba(192,132,252,0.15),transparent 70%);
+  pointer-events:none;
+}
+.hero-label{font-size:.68rem;font-weight:600;color:var(--accent);
+  letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}
+.hero-title{font-size:1.6rem;font-weight:700;letter-spacing:-.03em;line-height:1.2;margin-bottom:6px}
+.hero-sub{font-size:.85rem;color:var(--muted);margin-bottom:24px}
+.hero-actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn-glow{
+  padding:10px 22px;border:none;border-radius:var(--rsm);
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#0f0717;font-weight:700;font-size:.85rem;
+  cursor:pointer;font-family:inherit;
+  box-shadow:0 0 20px var(--glow);transition:var(--tr);
+}
+.btn-glow:hover{transform:translateY(-2px);box-shadow:0 0 32px var(--glow)}
+.btn-ghost{
+  padding:10px 22px;border:1px solid var(--border);border-radius:var(--rsm);
+  background:transparent;color:var(--muted);font-size:.85rem;font-weight:500;
+  cursor:pointer;font-family:inherit;transition:var(--tr);
+}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
 
-/* ── MAIN ── */
-.main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
-
-/* ── TOPBAR ── */
-.topbar{
-  background:rgba(7,12,26,0.96);
-  backdrop-filter:blur(12px);
-  padding:0 28px;
-  height:64px;
-  border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;gap:16px;
-  flex-shrink:0;
-}
-.topbar-left{display:flex;align-items:center;gap:14px}
-.topbar h1{font-size:1rem;font-weight:700;color:var(--text);letter-spacing:-.01em}
-.view-badge{
-  font-size:.68rem;font-weight:600;padding:3px 9px;border-radius:99px;
-  background:rgba(56,189,248,0.12);color:var(--accent);
-  letter-spacing:.03em;border:1px solid rgba(56,189,248,0.28);
-}
-.topbar-right{display:flex;align-items:center;gap:10px}
-.today-pill{
-  font-size:.75rem;color:var(--text-muted);font-weight:500;
-  background:var(--surface2);padding:5px 12px;border-radius:99px;
-  border:1px solid var(--border);
-}
-.count-pill{
-  font-size:.72rem;font-weight:600;padding:4px 10px;border-radius:99px;
-  background:rgba(56,189,248,0.12);color:var(--accent);
-  border:1px solid rgba(56,189,248,0.28);
-}
-
-.content{padding:24px 28px;overflow-y:auto;flex:1}
-
-/* ── EVENT CARDS ── */
-.date-group{margin-bottom:24px}
-.group-header{
-  display:flex;align-items:center;gap:10px;margin-bottom:10px;
-}
-.group-date{font-size:.72rem;font-weight:700;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase}
-.group-line{flex:1;height:1px;background:var(--border)}
-.group-count{font-size:.65rem;color:var(--text-dim);font-weight:600}
-
-.evt-list{display:flex;flex-direction:column;gap:6px}
-.evt-card{
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  padding:14px 16px;
+/* ── STATS ROW ── */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r);padding:18px 20px;
   display:flex;align-items:center;gap:14px;
-  transition:var(--transition);
-  cursor:default;
-  position:relative;
-  overflow:hidden;
 }
-.evt-card::before{
-  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
-  background:var(--card-color,var(--accent));border-radius:0 2px 2px 0;
+.stat-icon{
+  width:42px;height:42px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;
 }
-.evt-card:hover{
-  background:var(--surface2);
-  border-color:#1e3a6e;
-  transform:translateY(-1px);
-  box-shadow:0 4px 20px rgba(0,0,0,0.6);
-}
-.evt-time-col{
-  display:flex;flex-direction:column;align-items:center;
-  min-width:46px;flex-shrink:0;
-}
-.evt-time{font-size:.78rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
-.evt-ampm{font-size:.58rem;color:var(--text-muted);font-weight:500;margin-top:1px}
-.evt-divider{width:1px;height:36px;background:var(--border);flex-shrink:0}
-.evt-body{flex:1;min-width:0}
-.evt-title{font-weight:600;font-size:.9rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
-.evt-meta{display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap}
-.evt-desc{font-size:.73rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
-.evt-badge{
-  font-size:.63rem;padding:2px 8px;border-radius:99px;font-weight:600;
-  text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;flex-shrink:0;
-  border:1px solid;
-}
-.del-btn{
-  background:none;border:none;color:var(--text-dim);cursor:pointer;
-  width:30px;height:30px;border-radius:8px;display:flex;align-items:center;
-  justify-content:center;transition:var(--transition);flex-shrink:0;font-size:.85rem;
-}
-.del-btn:hover{color:var(--danger);background:rgba(248,113,113,0.12)}
+.stat-val{font-size:1.4rem;font-weight:700;letter-spacing:-.02em;line-height:1}
+.stat-lbl{font-size:.72rem;color:var(--muted);margin-top:2px;font-weight:400}
 
-.empty{
-  text-align:center;padding:72px 0;color:var(--text-muted);font-size:.88rem;
-  display:flex;flex-direction:column;align-items:center;gap:10px;
+/* ── CATEGORY PILLS ── */
+.cat-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.cat-pill{
+  padding:5px 13px;border-radius:99px;font-size:.74rem;font-weight:500;
+  border:1px solid var(--border);background:transparent;color:var(--muted);
+  cursor:pointer;transition:var(--tr);font-family:inherit;
 }
-.empty-icon{font-size:2.5rem;opacity:.4}
-.loading{
-  text-align:center;padding:48px 0;color:var(--text-muted);font-size:.85rem;
+.cat-pill:hover{color:var(--text);border-color:var(--accent)}
+.cat-pill.on{background:rgba(192,132,252,0.15);color:var(--accent);border-color:rgba(192,132,252,0.4)}
+
+/* ── EVENT GRID ── */
+.evt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.evt-tile{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r);padding:18px;
+  display:flex;flex-direction:column;gap:10px;
+  transition:var(--tr);position:relative;overflow:hidden;
+}
+.evt-tile::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:var(--tile-color,var(--accent));border-radius:var(--r) var(--r) 0 0;
+}
+.evt-tile:hover{transform:translateY(-3px);border-color:rgba(192,132,252,0.35);
+  box-shadow:0 8px 32px rgba(0,0,0,0.5)}
+.tile-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.tile-title{font-weight:600;font-size:.92rem;letter-spacing:-.01em;line-height:1.3}
+.tile-del{background:none;border:none;color:var(--dim);cursor:pointer;
+  font-size:.9rem;border-radius:6px;padding:3px 5px;transition:var(--tr);flex-shrink:0}
+.tile-del:hover{color:var(--danger);background:rgba(244,63,94,0.12)}
+.tile-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tile-time{font-size:.78rem;font-weight:600;color:var(--accent);
+  background:rgba(192,132,252,0.1);padding:3px 9px;border-radius:99px;border:1px solid rgba(192,132,252,0.2)}
+.tile-date{font-size:.72rem;color:var(--muted)}
+.tile-badge{font-size:.62rem;font-weight:600;padding:2px 8px;border-radius:99px;
+  text-transform:uppercase;letter-spacing:.05em;border:1px solid}
+.tile-desc{font-size:.76rem;color:var(--muted);line-height:1.5}
+
+/* ── EMPTY / LOADING ── */
+.empty-state{
+  grid-column:1/-1;text-align:center;padding:64px 20px;
   display:flex;flex-direction:column;align-items:center;gap:14px;
 }
-.spinner{
-  width:28px;height:28px;border:2.5px solid var(--border);
-  border-top-color:var(--accent);border-radius:50%;
-  animation:spin .7s linear infinite;
-}
+.empty-glyph{font-size:3rem;opacity:.3}
+.empty-title{font-size:1rem;font-weight:600;color:var(--muted)}
+.empty-sub{font-size:.8rem;color:var(--dim);max-width:280px;line-height:1.6}
+.spinner{width:30px;height:30px;border:2.5px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:spin .65s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── PANEL FORMS ── */
-.panel-wrap{max-width:540px}
-.panel{
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:20px;
-  padding:28px 28px 24px;
-  box-shadow:var(--shadow-sm);
+/* ── FORM PAGE ── */
+.form-wrap{max-width:520px}
+.form-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:20px;padding:30px;
 }
-.panel-header{display:flex;align-items:center;gap:12px;margin-bottom:24px}
-.panel-icon{
-  width:38px;height:38px;border-radius:10px;
-  background:linear-gradient(135deg,var(--accent),var(--cyan));
-  display:flex;align-items:center;justify-content:center;font-size:1rem;
-}
-.panel h2{font-size:1rem;font-weight:700;color:var(--text);letter-spacing:-.01em}
-.panel h2 small{display:block;font-size:.72rem;font-weight:400;color:var(--text-muted);margin-top:1px}
-
-label{display:block;font-size:.73rem;font-weight:600;color:var(--text-muted);margin-bottom:5px;margin-top:16px;letter-spacing:.02em;text-transform:uppercase}
-label:first-of-type{margin-top:0}
-
-input,select,textarea{
+.form-head{display:flex;align-items:center;gap:12px;margin-bottom:26px}
+.form-icon{width:40px;height:40px;border-radius:12px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;font-size:1.1rem;
+  box-shadow:0 0 14px var(--glow)}
+.form-title{font-size:1rem;font-weight:700}
+.form-sub{font-size:.72rem;color:var(--muted);margin-top:1px}
+.fld{margin-bottom:16px}
+.fld label{display:block;font-size:.7rem;font-weight:600;color:var(--muted);
+  letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
+.fld input,.fld select,.fld textarea{
   width:100%;padding:10px 13px;
-  background:var(--surface2);
-  border:1.5px solid var(--border);
-  border-radius:var(--radius-sm);
-  font-size:.87rem;color:var(--text);
-  outline:none;font-family:inherit;
-  transition:border-color var(--transition),box-shadow var(--transition);
-  appearance:none;
+  background:#120a22;border:1.5px solid var(--border);
+  border-radius:var(--rsm);font-size:.86rem;color:var(--text);
+  outline:none;font-family:inherit;transition:border-color var(--tr),box-shadow var(--tr);
+  -webkit-appearance:none;
 }
-input::placeholder{color:var(--text-dim)}
-input:focus,select:focus,textarea:focus{
-  border-color:var(--accent);
-  box-shadow:0 0 0 3px var(--accent-glow);
-  background:var(--surface3);
-}
-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b91c0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
-select option{background:var(--surface2)}
-textarea{min-height:72px;resize:vertical}
+.fld input::placeholder,.fld textarea::placeholder{color:var(--dim)}
+.fld input:focus,.fld select:focus,.fld textarea:focus{
+  border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.fld textarea{min-height:68px;resize:vertical}
+.fld select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%238b6faa' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:34px}
+.fld select option{background:#1a0f2e}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-
-.btn-primary{
-  margin-top:20px;width:100%;padding:11px;
-  background:var(--accent);
-  color:#020c1f;border:none;border-radius:var(--radius-sm);
+.submit-btn{
+  width:100%;padding:11px;margin-top:6px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#0f0717;border:none;border-radius:var(--rsm);
   font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;
-  transition:var(--transition);
-  box-shadow:0 0 20px var(--accent-glow);
-  letter-spacing:.01em;
+  box-shadow:0 0 18px var(--glow);transition:var(--tr);
 }
-.btn-primary:hover:not(:disabled){
-  background:var(--accent-light);
-  transform:translateY(-1px);box-shadow:0 0 32px var(--accent-glow);
-}
-.btn-primary:disabled{opacity:.3;cursor:not-allowed;transform:none}
+.submit-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 0 28px var(--glow)}
+.submit-btn:disabled{opacity:.3;cursor:not-allowed;transform:none}
+.form-msg{margin-top:10px;font-size:.78rem;text-align:center;min-height:14px;color:var(--muted)}
+.form-msg.ok{color:var(--ok)}.form-msg.err{color:var(--danger)}
 
-.status-msg{margin-top:10px;font-size:.8rem;min-height:16px;text-align:center;color:var(--text-muted)}
-.status-msg.ok{color:var(--success)}
-.status-msg.err{color:var(--danger)}
-
-/* ── ASK ── */
-.ask-ans{
-  margin-top:16px;
-  background:var(--surface2);border:1.5px solid var(--border);
-  border-radius:var(--radius-sm);padding:16px;
-  font-size:.87rem;line-height:1.75;
-  display:none;white-space:pre-wrap;color:var(--text);
-  position:relative;
+/* ── ASK PAGE ── */
+.ask-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:20px;padding:30px;max-width:600px;
 }
-.ask-ans::before{
-  content:'AI';position:absolute;top:-9px;left:14px;
-  background:linear-gradient(135deg,var(--accent),var(--cyan));
-  color:#020c1f;font-size:.6rem;font-weight:700;padding:1px 7px;border-radius:99px;
-  letter-spacing:.05em;
+.ai-resp{
+  margin-top:18px;background:#120a22;border:1px solid var(--border);
+  border-radius:var(--rsm);padding:16px;
+  font-size:.86rem;line-height:1.8;white-space:pre-wrap;
+  display:none;color:var(--text);position:relative;
 }
-.ask-err{margin-top:6px;font-size:.78rem;color:var(--danger);min-height:14px}
-.shortcut-tip{font-size:.7rem;color:var(--text-dim);margin-top:7px;text-align:right}
-
-/* ── WELCOME ── */
-.welcome{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:80px 20px;text-align:center;gap:16px;
+.ai-resp::before{
+  content:'AI Response';position:absolute;top:-10px;left:14px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  color:#0f0717;font-size:.58rem;font-weight:700;
+  padding:2px 9px;border-radius:99px;letter-spacing:.06em;
 }
-.welcome-icon{font-size:3.5rem;filter:drop-shadow(0 0 24px var(--accent-glow))}
-.welcome h2{font-size:1.15rem;font-weight:700;color:var(--text);letter-spacing:-.01em}
-.welcome p{font-size:.85rem;color:var(--text-muted);max-width:320px;line-height:1.7}
-.load-btn{
-  margin-top:8px;padding:10px 28px;
-  background:var(--accent);color:#020c1f;
-  border:none;border-radius:var(--radius-sm);
-  font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;
-  transition:var(--transition);box-shadow:0 0 20px var(--accent-glow);
-}
-.load-btn:hover{background:var(--accent-light);transform:translateY(-1px);box-shadow:0 0 32px var(--accent-glow)}
+.ask-err{font-size:.76rem;color:var(--danger);margin-top:6px;min-height:12px}
+.hint{font-size:.68rem;color:var(--dim);text-align:right;margin-top:5px}
 </style>
 </head>
 <body>
-<div class="app">
+"""
 
-<div class="sidebar">
-  <div class="logo-wrap">
-    <div class="logo-icon">&#128197;</div>
-    <div>
-      <div class="logo-text">Schedule Assistant</div>
-      <div class="logo-sub">RAG-powered planner</div>
+_UI2 = """
+<nav>
+  <div class="brand">
+    <div class="brand-dot">&#128336;</div>
+    <span class="brand-name">MyPlanner</span>
+  </div>
+  <div class="nav-tabs">
+    <button class="tab active" onclick="goTab('home')" id="tab-home">&#127968; Dashboard</button>
+    <button class="tab" onclick="goTab('add')" id="tab-add">&#43; New Event</button>
+    <button class="tab" onclick="goTab('ask')" id="tab-ask">&#129302; Ask AI</button>
+  </div>
+  <div class="nav-right">
+    <span class="date-chip" id="today-chip"></span>
+  </div>
+</nav>
+
+<!-- HOME PAGE -->
+<div class="page active" id="page-home">
+  <div class="hero">
+    <div class="hero-label">Your Personal Scheduler</div>
+    <div class="hero-title">What's on your<br/>agenda today?</div>
+    <div class="hero-sub">Add events, ask AI, and stay on top of your schedule.</div>
+    <div class="hero-actions">
+      <button class="btn-glow" onclick="loadEvents()">&#128197; Load Events</button>
+      <button class="btn-ghost" onclick="goTab('add')">&#43; Add Event</button>
     </div>
   </div>
 
-  <div class="ns">Navigation</div>
-  <button class="nav-btn active" onclick="showView('all')" id="nav-all">
-    <span class="nav-icon">&#128197;</span>All Events
-  </button>
-  <button class="nav-btn" onclick="showView('add')" id="nav-add">
-    <span class="nav-icon">&#43;&#65039;</span>Add / Manage
-  </button>
-  <button class="nav-btn" onclick="showView('ask')" id="nav-ask">
-    <span class="nav-icon">&#128172;</span>Ask AI
-  </button>
-
-  <div class="ns" style="margin-top:8px">Categories</div>
-  <button class="cat-btn active" onclick="filterCat('all')" id="cat-all"><span class="dot" style="background:#7b6cf6"></span>All</button>
-  <button class="cat-btn" onclick="filterCat('education')" id="cat-education"><span class="dot" style="background:#0ea5e9"></span>Education</button>
-  <button class="cat-btn" onclick="filterCat('work')" id="cat-work"><span class="dot" style="background:#818cf8"></span>Work</button>
-  <button class="cat-btn" onclick="filterCat('health')" id="cat-health"><span class="dot" style="background:#22c55e"></span>Health</button>
-  <button class="cat-btn" onclick="filterCat('family')" id="cat-family"><span class="dot" style="background:#f59e0b"></span>Family</button>
-  <button class="cat-btn" onclick="filterCat('social')" id="cat-social"><span class="dot" style="background:#ec4899"></span>Social</button>
-  <button class="cat-btn" onclick="filterCat('personal')" id="cat-personal"><span class="dot" style="background:#a78bfa"></span>Personal</button>
-  <button class="cat-btn" onclick="filterCat('shopping')" id="cat-shopping"><span class="dot" style="background:#f97316"></span>Shopping</button>
-  <button class="cat-btn" onclick="filterCat('entertainment')" id="cat-entertainment"><span class="dot" style="background:#c084fc"></span>Entertainment</button>
-  <button class="cat-btn" onclick="filterCat('travel')" id="cat-travel"><span class="dot" style="background:#f43f5e"></span>Travel</button>
-  <button class="cat-btn" onclick="filterCat('finance')" id="cat-finance"><span class="dot" style="background:#14b8a6"></span>Finance</button>
-  <button class="cat-btn" onclick="filterCat('home')" id="cat-home"><span class="dot" style="background:#84cc16"></span>Home</button>
-  <button class="cat-btn" onclick="filterCat('deadline')" id="cat-deadline"><span class="dot" style="background:#ef4444"></span>Deadlines</button>
-  <button class="cat-btn" onclick="filterCat('recurring')" id="cat-recurring"><span class="dot" style="background:#06b6d4"></span>Recurring</button>
-  <button class="cat-btn" onclick="filterCat('appointment')" id="cat-appointment"><span class="dot" style="background:#d946ef"></span>Appointments</button>
-  <button class="cat-btn" onclick="filterCat('emergency')" id="cat-emergency"><span class="dot" style="background:#dc2626"></span>Emergencies</button>
-  <button class="cat-btn" onclick="filterCat('meeting')" id="cat-meeting"><span class="dot" style="background:#3b82f6"></span>Meetings</button>
-  <button class="cat-btn" onclick="filterCat('task')" id="cat-task"><span class="dot" style="background:#fbbf24"></span>Tasks</button>
-  <button class="cat-btn" onclick="filterCat('workshop')" id="cat-workshop"><span class="dot" style="background:#10b981"></span>Workshops</button>
-  <button class="cat-btn" onclick="filterCat('other')" id="cat-other"><span class="dot" style="background:#94a3b8"></span>Other</button>
-</div>
-
-<div class="main">
-  <div class="topbar">
-    <div class="topbar-left">
-      <h1 id="view-title">All Events</h1>
-      <span class="view-badge" id="view-badge">Schedule</span>
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(192,132,252,0.15)">&#128197;</div>
+      <div><div class="stat-val" id="s-total">—</div><div class="stat-lbl">Total Events</div></div>
     </div>
-    <div class="topbar-right">
-      <span class="count-pill" id="count-pill" style="display:none"></span>
-      <span class="today-pill" id="today-label"></span>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(251,191,36,0.15)">&#9201;</div>
+      <div><div class="stat-val" id="s-today">—</div><div class="stat-lbl">Today</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(45,212,191,0.15)">&#128640;</div>
+      <div><div class="stat-val" id="s-upcoming">—</div><div class="stat-lbl">Upcoming</div></div>
     </div>
   </div>
-  <div class="content">
 
-    <div id="view-all">
-      <div id="events-out">
-        <div class="welcome">
-          <div class="welcome-icon">&#128197;</div>
-          <h2>Your Schedule</h2>
-          <p>Events you add from now on will appear here. Click below to load your upcoming events.</p>
-          <button class="load-btn" onclick="loadEvents()">Load My Events</button>
-        </div>
-      </div>
+  <div class="cat-row" id="cat-row">
+    <button class="cat-pill on" onclick="filterCat('all')" id="cp-all">All</button>
+    <button class="cat-pill" onclick="filterCat('education')" id="cp-education">Education</button>
+    <button class="cat-pill" onclick="filterCat('work')" id="cp-work">Work</button>
+    <button class="cat-pill" onclick="filterCat('health')" id="cp-health">Health</button>
+    <button class="cat-pill" onclick="filterCat('family')" id="cp-family">Family</button>
+    <button class="cat-pill" onclick="filterCat('social')" id="cp-social">Social</button>
+    <button class="cat-pill" onclick="filterCat('personal')" id="cp-personal">Personal</button>
+    <button class="cat-pill" onclick="filterCat('shopping')" id="cp-shopping">Shopping</button>
+    <button class="cat-pill" onclick="filterCat('entertainment')" id="cp-entertainment">Entertainment</button>
+    <button class="cat-pill" onclick="filterCat('travel')" id="cp-travel">Travel</button>
+    <button class="cat-pill" onclick="filterCat('finance')" id="cp-finance">Finance</button>
+    <button class="cat-pill" onclick="filterCat('home')" id="cp-home">Home</button>
+    <button class="cat-pill" onclick="filterCat('deadline')" id="cp-deadline">Deadline</button>
+    <button class="cat-pill" onclick="filterCat('recurring')" id="cp-recurring">Recurring</button>
+    <button class="cat-pill" onclick="filterCat('appointment')" id="cp-appointment">Appointment</button>
+    <button class="cat-pill" onclick="filterCat('emergency')" id="cp-emergency">Emergency</button>
+    <button class="cat-pill" onclick="filterCat('meeting')" id="cp-meeting">Meeting</button>
+    <button class="cat-pill" onclick="filterCat('task')" id="cp-task">Task</button>
+    <button class="cat-pill" onclick="filterCat('workshop')" id="cp-workshop">Workshop</button>
+    <button class="cat-pill" onclick="filterCat('other')" id="cp-other">Other</button>
+  </div>
+
+  <div class="evt-grid" id="evt-grid">
+    <div class="empty-state">
+      <div class="empty-glyph">&#128197;</div>
+      <div class="empty-title">No events yet</div>
+      <div class="empty-sub">Click "Load Events" above or add a new event to get started.</div>
     </div>
-
-    <div id="view-add" style="display:none">
-      <div class="panel-wrap">
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-icon">&#9998;</div>
-            <div>
-              <h2>Manage Event<small>Add, update, or remove a scheduled item</small></h2>
-            </div>
-          </div>
-          <label>Action</label>
-          <select id="f-action">
-            <option value="add">&#43; Add new event</option>
-            <option value="update">&#9998; Update existing event</option>
-            <option value="delete">&#128465; Delete event</option>
-          </select>
-          <div class="row2">
-            <div><label>Date</label><input type="date" id="f-date"/></div>
-            <div><label>Time</label><input type="time" id="f-time" value="09:00"/></div>
-          </div>
-          <label>Title / Purpose</label>
-          <input type="text" id="f-title" placeholder="e.g. Doctor visit, Team meeting..."/>
-          <label>Category</label>
-          <select id="f-type">
-            <option value="education">Education</option>
-            <option value="work">Work</option>
-            <option value="health">Health</option>
-            <option value="family">Family</option>
-            <option value="social">Social</option>
-            <option value="personal">Personal</option>
-            <option value="shopping">Shopping &amp; Errands</option>
-            <option value="entertainment">Entertainment</option>
-            <option value="travel">Travel</option>
-            <option value="finance">Finance</option>
-            <option value="home">Home</option>
-            <option value="deadline">Deadline</option>
-            <option value="recurring">Recurring Event</option>
-            <option value="appointment">Appointment</option>
-            <option value="emergency">Emergency</option>
-            <option value="meeting">Meeting</option>
-            <option value="task">Task</option>
-            <option value="workshop">Workshop</option>
-            <option value="other">Other</option>
-          </select>
-          <label>Description <span style="font-weight:400;text-transform:none;opacity:.6">(optional)</span></label>
-          <input type="text" id="f-desc" placeholder="Extra details..."/>
-          <button class="btn-primary" id="save-btn" onclick="saveEvent()">Save Event</button>
-          <div class="status-msg" id="save-st"></div>
-        </div>
-      </div>
-    </div>
-
-    <div id="view-ask" style="display:none">
-      <div class="panel-wrap">
-        <div class="panel" style="max-width:600px">
-          <div class="panel-header">
-            <div class="panel-icon">&#128172;</div>
-            <div>
-              <h2>Ask the AI<small>Ask anything about your schedule in plain language</small></h2>
-            </div>
-          </div>
-          <label>Your question</label>
-          <textarea id="q-in" rows="3" placeholder="e.g. What do I have tomorrow?&#10;Am I free Friday afternoon?&#10;Move my 2 PM meeting to 4 PM"></textarea>
-          <div class="shortcut-tip">Tip: Press Ctrl+Enter to send</div>
-          <button class="btn-primary" id="ask-btn" onclick="askAgent()">Ask AI</button>
-          <div class="ask-ans" id="ask-ans"></div>
-          <div class="ask-err" id="ask-err"></div>
-        </div>
-      </div>
-    </div>
-
   </div>
 </div>
+
+<!-- ADD EVENT PAGE -->
+<div class="page" id="page-add">
+  <div class="form-wrap">
+    <div class="form-card">
+      <div class="form-head">
+        <div class="form-icon">&#9998;</div>
+        <div><div class="form-title">Manage Event</div><div class="form-sub">Create, update or remove a schedule item</div></div>
+      </div>
+      <div class="fld"><label>Action</label>
+        <select id="f-action">
+          <option value="add">Add new event</option>
+          <option value="update">Update existing event</option>
+          <option value="delete">Delete event</option>
+        </select>
+      </div>
+      <div class="row2">
+        <div class="fld"><label>Date</label><input type="date" id="f-date"/></div>
+        <div class="fld"><label>Time</label><input type="time" id="f-time" value="09:00"/></div>
+      </div>
+      <div class="fld"><label>Title</label>
+        <input type="text" id="f-title" placeholder="e.g. Doctor visit, Team sync..."/>
+      </div>
+      <div class="fld"><label>Category</label>
+        <select id="f-cat">
+          <option value="education">Education</option>
+          <option value="work">Work</option>
+          <option value="health">Health</option>
+          <option value="family">Family</option>
+          <option value="social">Social</option>
+          <option value="personal">Personal</option>
+          <option value="shopping">Shopping &amp; Errands</option>
+          <option value="entertainment">Entertainment</option>
+          <option value="travel">Travel</option>
+          <option value="finance">Finance</option>
+          <option value="home">Home</option>
+          <option value="deadline">Deadline</option>
+          <option value="recurring">Recurring Event</option>
+          <option value="appointment">Appointment</option>
+          <option value="emergency">Emergency</option>
+          <option value="meeting">Meeting</option>
+          <option value="task">Task</option>
+          <option value="workshop">Workshop</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="fld"><label>Description <span style="opacity:.5;font-weight:400;text-transform:none">(optional)</span></label>
+        <input type="text" id="f-desc" placeholder="Extra details..."/>
+      </div>
+      <button class="submit-btn" id="save-btn" onclick="saveEvent()">Save Event</button>
+      <div class="form-msg" id="save-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ASK AI PAGE -->
+<div class="page" id="page-ask">
+  <div class="ask-card">
+    <div class="form-head">
+      <div class="form-icon">&#129302;</div>
+      <div><div class="form-title">Ask the AI</div><div class="form-sub">Ask anything about your schedule in plain English</div></div>
+    </div>
+    <div class="fld"><label>Your question</label>
+      <textarea id="q-txt" rows="3" placeholder="e.g. What do I have this week?&#10;Am I free tomorrow afternoon?&#10;Schedule a meeting Friday at 3pm"></textarea>
+      <div class="hint">Ctrl + Enter to send</div>
+    </div>
+    <button class="submit-btn" id="ask-btn" onclick="askAI()">Ask AI</button>
+    <div class="ai-resp" id="ai-resp"></div>
+    <div class="ask-err" id="ask-err"></div>
+  </div>
 </div>
 """
 
-_HTML_PART2 = """
+_UI3 = """
 <script>
 const COLORS = {
-  education:'#0ea5e9', work:'#818cf8', health:'#22c55e', family:'#f59e0b',
-  social:'#ec4899', personal:'#a78bfa', shopping:'#f97316', entertainment:'#c084fc',
-  travel:'#f43f5e', finance:'#14b8a6', home:'#84cc16', deadline:'#ef4444',
-  recurring:'#06b6d4', appointment:'#d946ef', emergency:'#dc2626',
-  meeting:'#3b82f6', task:'#fbbf24', workshop:'#10b981', other:'#94a3b8',
+  education:'#38bdf8', work:'#818cf8', health:'#4ade80', family:'#fbbf24',
+  social:'#f472b6', personal:'#c084fc', shopping:'#fb923c', entertainment:'#e879f9',
+  travel:'#f43f5e', finance:'#2dd4bf', home:'#a3e635', deadline:'#f87171',
+  recurring:'#22d3ee', appointment:'#d946ef', emergency:'#dc2626',
+  meeting:'#60a5fa', task:'#facc15', workshop:'#34d399', other:'#94a3b8',
 };
 
-let allEvents = [];
-let currentCat = 'all';
+let allEvents = [], currentCat = 'all', loaded = false;
+const todayStr = new Date().toISOString().split('T')[0];
+const tomorrowStr = new Date(Date.now()+86400000).toISOString().split('T')[0];
 
-const today = new Date();
-const todayStr = today.toISOString().split('T')[0];
-const tomorrowStr = new Date(today.getTime()+86400000).toISOString().split('T')[0];
-
-document.getElementById('today-label').textContent =
-  today.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+document.getElementById('today-chip').textContent =
+  new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 document.getElementById('f-date').value = todayStr;
 
-// ── VIEWS ──
-let eventsLoaded = false;
-function showView(name) {
-  ['all','add','ask'].forEach(v => {
-    document.getElementById('view-'+v).style.display = v===name ? '' : 'none';
-    document.getElementById('nav-'+v).classList.toggle('active', v===name);
-  });
-  const titles = {all:'My Schedule', add:'Manage Event', ask:'Ask AI'};
-  const badges = {all:'Schedule', add:'Event Manager', ask:'AI Assistant'};
-  document.getElementById('view-title').textContent = titles[name];
-  document.getElementById('view-badge').textContent = badges[name];
-  document.getElementById('count-pill').style.display = (name==='all' && eventsLoaded) ? '' : 'none';
+function goTab(t) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+t).classList.add('active');
+  document.getElementById('tab-'+t).classList.add('active');
 }
 
-// ── CATEGORY FILTER ──
 function filterCat(cat) {
   currentCat = cat;
-  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('cat-'+cat).classList.add('active');
-  showView('all');
-  if (eventsLoaded) loadEvents();
+  document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('on'));
+  document.getElementById('cp-'+cat).classList.add('on');
+  if (loaded) renderGrid();
 }
 
-// ── LOAD EVENTS ──
 async function loadEvents() {
-  eventsLoaded = true;
-  document.getElementById('count-pill').style.display = '';
-  document.getElementById('events-out').innerHTML =
-    '<div class="loading"><div class="spinner"></div>Loading your schedule...</div>';
+  const grid = document.getElementById('evt-grid');
+  grid.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
   try {
-    const url = currentCat === 'all' ? '/events' : '/events?category='+currentCat;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to load');
-    allEvents = data.events || [];
-    renderEvents();
+    const url = currentCat==='all' ? '/events' : '/events?category='+currentCat;
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail);
+    allEvents = d.events || [];
+    loaded = true;
+    updateStats();
+    renderGrid();
   } catch(e) {
-    document.getElementById('events-out').innerHTML =
-      '<div class="empty"><div class="empty-icon">&#128197;</div>Could not load events: '+e.message+'</div>';
+    grid.innerHTML = '<div class="empty-state"><div class="empty-glyph">&#9888;</div><div class="empty-title">Could not load</div><div class="empty-sub">'+e.message+'</div></div>';
   }
 }
 
-function fmtTime(t) {
-  if (!t) return {time:'—', ampm:''};
-  const [h, m] = t.split(':').map(Number);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  return {time: h12 + ':' + String(m).padStart(2,'0'), ampm};
+function updateStats() {
+  document.getElementById('s-total').textContent = allEvents.length;
+  document.getElementById('s-today').textContent = allEvents.filter(e=>e.date===todayStr).length;
+  document.getElementById('s-upcoming').textContent = allEvents.filter(e=>e.date>todayStr).length;
 }
 
 function fmtDate(ds) {
-  const d = new Date(ds+'T12:00:00');
-  const fmt = d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  if (ds === todayStr) return '&#128205; Today';
-  if (ds === tomorrowStr) return '&#128198; Tomorrow';
-  return fmt;
+  if (ds===todayStr) return 'Today';
+  if (ds===tomorrowStr) return 'Tomorrow';
+  return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
 }
 
-function renderEvents() {
-  const out = document.getElementById('events-out');
-  const cp = document.getElementById('count-pill');
-  if (!allEvents.length) {
-    cp.style.display='none';
-    out.innerHTML = '<div class="empty"><div class="empty-icon">&#128197;</div>'
-      + 'No events found'+(currentCat!=='all' ? ' in this category' : '')+'.</div>';
+function fmt12(t) {
+  if (!t) return '';
+  const [h,m] = t.split(':').map(Number);
+  return (h%12||12)+':'+(m<10?'0':'')+m+(h>=12?' PM':' AM');
+}
+
+function renderGrid() {
+  const grid = document.getElementById('evt-grid');
+  const list = currentCat==='all' ? allEvents : allEvents.filter(e=>e.category===currentCat);
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-glyph">&#128197;</div><div class="empty-title">No events'+(currentCat!=='all'?' in this category':'')+'</div><div class="empty-sub">Add one using the New Event tab.</div></div>';
     return;
   }
-  cp.style.display='';
-  cp.textContent = allEvents.length + (allEvents.length===1?' event':' events');
-
-  const grouped = {};
-  allEvents.forEach(e => { if (!grouped[e.date]) grouped[e.date]=[]; grouped[e.date].push(e); });
-
-  let html = '';
-  Object.keys(grouped).sort().forEach(date => {
-    const grp = grouped[date];
-    const dateLabel = fmtDate(date);
-    html += `<div class="date-group">
-      <div class="group-header">
-        <span class="group-date">${dateLabel}</span>
-        <div class="group-line"></div>
-        <span class="group-count">${grp.length}</span>
+  grid.innerHTML = list.map(e => {
+    const c = COLORS[e.category]||'#c084fc';
+    const bg = c+'18', border = c+'44';
+    const lbl = (e.category||'personal');
+    const labelStr = lbl.charAt(0).toUpperCase()+lbl.slice(1);
+    const safeT = (e.title||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const safeD = (e.description||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const safeJs = (e.title||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<div class="evt-tile" style="--tile-color:${c}">
+      <div class="tile-top">
+        <div class="tile-title">${safeT||'(no title)'}</div>
+        <button class="tile-del" onclick="delEvent('${e.id}','${safeJs}')" title="Delete">&#128465;</button>
       </div>
-      <div class="evt-list">`;
-
-    grp.forEach(e => {
-      const cat = e.category || 'personal';
-      const c = COLORS[cat] || '#7b6cf6';
-      const alpha = c + '22';
-      const label = cat.charAt(0).toUpperCase() + cat.slice(1).replace('_',' ');
-      const {time, ampm} = fmtTime(e.time);
-      const safeTitle = (e.title||'(no title)').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const safeDesc = (e.description||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const safeTitleJs = (e.title||'').replace(/\\\\/g,'\\\\\\\\').replace(/'/g,"\\\\'");
-      html += `<div class="evt-card" style="--card-color:${c}">
-        <div class="evt-time-col">
-          <div class="evt-time">${time}</div>
-          <div class="evt-ampm">${ampm}</div>
-        </div>
-        <div class="evt-divider"></div>
-        <div class="evt-body">
-          <div class="evt-title">${safeTitle}</div>
-          <div class="evt-meta">
-            ${safeDesc ? `<span class="evt-desc">${safeDesc}</span>` : ''}
-          </div>
-        </div>
-        <span class="evt-badge" style="background:${alpha};color:${c};border-color:${c}44">${label}</span>
-        <button class="del-btn" title="Delete event" onclick="delEvent('${e.id}','${safeTitleJs}')">&#128465;</button>
-      </div>`;
-    });
-    html += '</div></div>';
-  });
-  out.innerHTML = html;
+      <div class="tile-meta">
+        ${e.time?`<span class="tile-time">${fmt12(e.time)}</span>`:''}
+        <span class="tile-date">${fmtDate(e.date)}</span>
+      </div>
+      ${safeD?`<div class="tile-desc">${safeD}</div>`:''}
+      <div><span class="tile-badge" style="background:${bg};color:${c};border-color:${border}">${labelStr}</span></div>
+    </div>`;
+  }).join('');
 }
 
-// ── DELETE ──
 async function delEvent(id, title) {
   if (!confirm('Delete "'+title+'"?')) return;
   try {
-    const res = await fetch('/events/'+encodeURIComponent(id), {method:'DELETE'});
-    if (!res.ok) { const d=await res.json(); throw new Error(d.detail); }
-    allEvents = allEvents.filter(e => e.id !== id);
-    renderEvents();
+    const r = await fetch('/events/'+encodeURIComponent(id),{method:'DELETE'});
+    if (!r.ok) { const d=await r.json(); throw new Error(d.detail); }
+    allEvents = allEvents.filter(e=>e.id!==id);
+    updateStats(); renderGrid();
   } catch(e) { alert('Delete failed: '+e.message); }
 }
 
-// ── SAVE EVENT ──
 async function saveEvent() {
   const action = document.getElementById('f-action').value;
   const date   = document.getElementById('f-date').value;
-  const time   = document.getElementById('f-time').value || '09:00';
+  const time   = document.getElementById('f-time').value||'09:00';
   const title  = document.getElementById('f-title').value.trim();
-  const type   = document.getElementById('f-type').value;
+  const cat    = document.getElementById('f-cat').value;
   const desc   = document.getElementById('f-desc').value.trim();
   const btn    = document.getElementById('save-btn');
-  const st     = document.getElementById('save-st');
-
-  if (!date || !title) {
-    st.className='status-msg err'; st.textContent='Date and title are required.'; return;
-  }
-  btn.disabled=true; st.className='status-msg'; st.textContent='Saving...';
-
-  const msg = action==='delete'
+  const msg    = document.getElementById('save-msg');
+  if (!date||!title){msg.className='form-msg err';msg.textContent='Date and title are required.';return;}
+  btn.disabled=true; msg.className='form-msg'; msg.textContent='Saving...';
+  const text = action==='delete'
     ? `Delete the event titled "${title}" on ${date}`
     : action==='update'
-    ? `Update event "${title}" on ${date}: change time to ${time}, category ${type}. ${desc}`
-    : `Add a ${type} event titled "${title}" on ${date} at ${time}. ${desc}`;
-
+    ? `Update event "${title}" on ${date}: time ${time}, category ${cat}. ${desc}`
+    : `Add a ${cat} event titled "${title}" on ${date} at ${time}. ${desc}`;
   try {
-    const res = await fetch('/agent/invoke',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({input:msg})
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail);
-    st.className='status-msg ok';
-    st.textContent = action==='delete' ? '&#10003; Deleted.' : action==='update' ? '&#10003; Updated.' : '&#10003; Event saved!';
-    if (action==='add') {
-      document.getElementById('f-title').value='';
-      document.getElementById('f-desc').value='';
-    }
-  } catch(e) {
-    st.className='status-msg err'; st.textContent='Error: '+e.message;
-  } finally { btn.disabled=false; }
+    const r = await fetch('/agent/invoke',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({input:text})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail);
+    msg.className='form-msg ok';
+    msg.textContent = action==='delete'?'Deleted!':action==='update'?'Updated!':'Event saved!';
+    if (action==='add'){document.getElementById('f-title').value='';document.getElementById('f-desc').value='';}
+  } catch(e){msg.className='form-msg err';msg.textContent='Error: '+e.message;}
+  finally{btn.disabled=false;}
 }
 
-// ── ASK AGENT ──
-async function askAgent() {
-  const q   = document.getElementById('q-in').value.trim();
+async function askAI() {
+  const q = document.getElementById('q-txt').value.trim();
   const btn = document.getElementById('ask-btn');
-  const ans = document.getElementById('ask-ans');
+  const resp = document.getElementById('ai-resp');
   const err = document.getElementById('ask-err');
   if (!q) return;
   btn.disabled=true; btn.textContent='Thinking...';
-  ans.style.display='none'; err.textContent='';
+  resp.style.display='none'; err.textContent='';
   try {
-    const res = await fetch('/agent/invoke',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({input:q})
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail);
-    ans.style.display='block'; ans.textContent=data.output;
-  } catch(e) { err.textContent='Error: '+e.message; }
-  finally { btn.disabled=false; btn.textContent='Ask AI'; }
+    const r = await fetch('/agent/invoke',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({input:q})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail);
+    resp.style.display='block'; resp.textContent=d.output;
+  } catch(e){err.textContent='Error: '+e.message;}
+  finally{btn.disabled=false; btn.textContent='Ask AI';}
 }
 
-document.getElementById('q-in').addEventListener('keydown', e => {
-  if (e.key==='Enter' && e.ctrlKey) askAgent();
-});
-
+document.getElementById('q-txt').addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='Enter')askAI();});
 </script>
 </body>
 </html>
@@ -783,7 +655,7 @@ document.getElementById('q-in').addEventListener('keydown', e => {
 
 @app.get("/agent/playground", response_class=HTMLResponse)
 def playground():
-    return _HTML_PART1 + _HTML_PART2
+    return _UI + _UI2 + _UI3
 
 
 if __name__ == "__main__":
