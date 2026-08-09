@@ -131,26 +131,26 @@ _HTML = r"""<!DOCTYPE html>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0b1120;
-  --surface:#101827;
-  --surface2:#162033;
-  --surface3:#1c2a42;
-  --border:#1e3050;
-  --accent:#38bdf8;
-  --accent2:#818cf8;
-  --accent-glow:rgba(56,189,248,0.18);
-  --green:#34d399;
-  --rose:#fb7185;
-  --amber:#fbbf24;
-  --text:#e8f0fe;
-  --text-muted:#64748b;
-  --text-dim:#283650;
-  --danger:#f87171;
-  --success:#34d399;
+  --bg:#000000;
+  --surface:#0d0d0d;
+  --surface2:#1a1a1a;
+  --surface3:#262626;
+  --border:#2e2e2e;
+  --accent:#ffffff;
+  --accent2:#cccccc;
+  --accent-glow:rgba(255,255,255,0.08);
+  --green:#aaaaaa;
+  --rose:#888888;
+  --amber:#bbbbbb;
+  --text:#f0f0f0;
+  --text-muted:#777777;
+  --text-dim:#3a3a3a;
+  --danger:#ff5555;
+  --success:#aaaaaa;
   --radius:14px;
   --radius-sm:9px;
-  --shadow:0 8px 32px rgba(0,0,0,0.6);
-  --shadow-sm:0 2px 12px rgba(0,0,0,0.4);
+  --shadow:0 8px 32px rgba(0,0,0,0.9);
+  --shadow-sm:0 2px 12px rgba(0,0,0,0.7);
   --tr:.17s cubic-bezier(.4,0,.2,1);
 }
 body{font-family:'DM Sans',sans-serif;background:var(--bg);min-height:100vh;color:var(--text);overflow:hidden}
@@ -198,8 +198,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);min-height:100vh;colo
 }
 .nav-btn:hover{background:var(--surface2);color:var(--text)}
 .nav-btn.active{
-  background:rgba(56,189,248,0.1);color:var(--accent);
-  box-shadow:inset 0 0 0 1px rgba(56,189,248,0.22);
+  background:rgba(255,255,255,0.07);color:var(--accent);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15);
 }
 .nav-icon{font-size:.95rem;width:19px;text-align:center;flex-shrink:0}
 
@@ -211,7 +211,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);min-height:100vh;colo
   transition:var(--tr);width:calc(100% - 14px);font-family:inherit;
 }
 .cat-btn:hover{background:var(--surface2);color:var(--text)}
-.cat-btn.active{color:var(--accent);background:rgba(56,189,248,0.08)}
+.cat-btn.active{color:var(--accent);background:rgba(255,255,255,0.07)}
 .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 
 /* ── MAIN ── */
@@ -219,7 +219,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);min-height:100vh;colo
 
 /* ── TOPBAR ── */
 .topbar{
-  background:rgba(11,17,32,0.95);
+  background:rgba(0,0,0,0.98);
   backdrop-filter:blur(14px);
   padding:0 26px;height:60px;
   border-bottom:1px solid var(--border);
@@ -230,8 +230,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);min-height:100vh;colo
 .topbar h1{font-size:.95rem;font-weight:700;color:var(--text);letter-spacing:-.01em}
 .view-badge{
   font-size:.65rem;font-weight:600;padding:3px 9px;border-radius:99px;
-  background:rgba(56,189,248,0.1);color:var(--accent);
-  border:1px solid rgba(56,189,248,0.22);
+  background:rgba(255,255,255,0.07);color:var(--accent);
+  border:1px solid rgba(255,255,255,0.15);
 }
 .topbar-right{display:flex;align-items:center;gap:9px}
 .today-pill{
