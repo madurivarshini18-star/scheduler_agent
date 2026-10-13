@@ -9,7 +9,7 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: GROQ_MODEL
-        value: llama-3.1-8b-instant
+        value: meta-llama/llama-4-scout-17b-16e-instruct
       - key: PINECONE_API_KEY
         sync: false
       - key: PINECONE_INDEX_NAME
