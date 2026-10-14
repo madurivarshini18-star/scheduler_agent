@@ -14,13 +14,13 @@ def _require(name: str) -> str:
     return value
 
 
-GROQ_API_KEY = _require("GROQ_API_KEY")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+GROQ_API_KEY = _require("GROQ_API_KEY").strip()
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b").strip()
 
-PINECONE_API_KEY = _require("PINECONE_API_KEY")
-PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "schedule-agent")
-PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
-PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
+PINECONE_API_KEY = _require("PINECONE_API_KEY").strip()
+PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "schedule-agent").strip()
+PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws").strip()
+PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1").strip()
 
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5").strip()
 EMBEDDING_DIMENSION = 384
