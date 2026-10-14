@@ -2,7 +2,7 @@ import json
 import re
 from datetime import datetime
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
 
 from app.config import GROQ_API_KEY, GROQ_MODEL
@@ -13,64 +13,82 @@ TOOLS = {
     "update_schedule": update_schedule,
 }
 
-# Bind tools natively so any Groq model can call them correctly
-_base_llm = ChatGroq(api_key=GROQ_API_KEY, model=GROQ_MODEL, temperature=0)
-try:
-    llm = _base_llm.bind_tools([get_schedule, update_schedule])
-except Exception:
-    llm = _base_llm
+# Plain LLM — NO bind_tools, no tool schemas sent to the model
+# This avoids the 'tool_use_failed' error with gpt-oss models
+llm = ChatGroq(api_key=GROQ_API_KEY, model=GROQ_MODEL, temperature=0)
 
 
 def _system_prompt() -> str:
     today = datetime.now().strftime("%Y-%m-%d (%A)")
-    return f"""You are a helpful scheduling assistant. Today is {today}.
+    return f"""You are a scheduling assistant. Today is {today}.
 
-Use the available tools to manage the user's schedule:
-- Use get_schedule to retrieve or query events
-- Use update_schedule to add, update, or delete events
+You have two tools. When you need a tool, respond with ONLY a raw JSON object — no markdown, no explanation, nothing else:
 
-Rules:
-1. Always resolve relative dates (tomorrow, next Monday, etc.) to exact YYYY-MM-DD using today ({today}).
-2. For any query about schedule or availability, call get_schedule.
-3. For adding/updating/deleting events, call update_schedule.
-4. After receiving tool results, answer the user naturally.
-5. Never invent schedule data — only use what the tool returns.
-6. If no tool is needed, answer directly."""
+To retrieve schedule:
+{{"tool": "get_schedule", "args": {{"query": "2026-10-15"}}}}
 
+To add/update/delete an event:
+{{"tool": "update_schedule", "args": {{"action": "add", "title": "Doctor visit", "date": "2026-10-15", "time": "10:00", "event_type": "health", "description": "fever"}}}}
 
-def _extract_native_tool_calls(response) -> list:
-    """Extract tool calls from native LangChain tool_calls attribute."""
-    calls = []
-    if hasattr(response, "tool_calls") and response.tool_calls:
-        for tc in response.tool_calls:
-            calls.append({
-                "id":   tc.get("id", "tc_0"),
-                "name": tc.get("name", ""),
-                "args": tc.get("args", {}),
-            })
-    return calls
+STRICT RULES:
+1. Resolve all relative dates to YYYY-MM-DD format using today = {today}.
+2. Output ONLY the raw JSON object when calling a tool. No other text.
+3. After receiving a tool result, give a natural language answer.
+4. Never invent data. Only use what the tool returns.
+5. If no tool is needed, answer directly in plain text."""
 
 
-def _extract_json_tool_call(text: str) -> dict | None:
-    """Fallback: extract plain JSON tool call from text (older approach)."""
-    # Try nested JSON: {"tool": "...", "args": {...}}
-    match = re.search(r'\{[^{}]*"tool"\s*:[^{}]*\}', text, re.DOTALL)
-    if match:
+def _extract_tool_call(text: str) -> dict | None:
+    """
+    Extract tool call from model response.
+    Handles multiple formats:
+    - {"tool": "update_schedule", "args": {...}}
+    - {"name": "update_schedule", "arguments": {...}}
+    - {"name": "tool.update_schedule", "arguments": {...}}
+    """
+    if not text or not text.strip():
+        return None
+
+    # Try to find a JSON block anywhere in the text
+    # First try to extract any {...} block
+    candidates = re.findall(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)?\}', text, re.DOTALL)
+
+    # Also try the full text as JSON
+    candidates.append(text.strip())
+
+    for candidate in candidates:
         try:
-            data = json.loads(match.group())
-            if "tool" in data:
-                return data
-        except json.JSONDecodeError:
-            pass
-    # Try top-level JSON with "name" key (native format in text)
-    try:
-        data = json.loads(text.strip())
-        if "name" in data and data["name"] in TOOLS:
-            return {"tool": data["name"], "args": data.get("arguments", data.get("args", {}))}
+            data = json.loads(candidate)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        # Format 1: {"tool": "update_schedule", "args": {...}}
+        if "tool" in data and data["tool"] in TOOLS:
+            return {"tool": data["tool"], "args": data.get("args", {})}
+
+        # Format 2: {"name": "update_schedule", "arguments": {...}}
+        # Format 3: {"name": "tool.update_schedule", "arguments": {...}}
+        if "name" in data:
+            # Strip "tool." prefix if present
+            raw_name = data["name"].replace("tool.", "")
+            if raw_name in TOOLS:
+                args = data.get("arguments", data.get("args", {}))
+                # Handle nested args: {"tool": "x", "args": {...}}
+                if isinstance(args, dict) and "tool" in args and "args" in args:
+                    args = args["args"]
+                return {"tool": raw_name, "args": args}
+
+        # Format 4: nested inside failed_generation style
+        # {"tool": "update_schedule", "args": {"action": ..., "args": {...}}}
         if "tool" in data:
-            return data
-    except json.JSONDecodeError:
-        pass
+            raw_name = str(data["tool"]).replace("tool.", "")
+            if raw_name in TOOLS:
+                args = data.get("args", {})
+                # Unwrap double-nested args if present
+                if "args" in args and isinstance(args["args"], dict):
+                    args = args["args"]
+                return {"tool": raw_name, "args": args}
+
     return None
 
 
@@ -84,58 +102,57 @@ def run_agent(user_input: str) -> str:
         try:
             response = llm.invoke(messages)
         except Exception as e:
-            return f"Agent error: {str(e)}"
+            err = str(e)
+            # Model tried to call a tool natively — extract from error message
+            tool_call = _extract_tool_call_from_error(err)
+            if tool_call:
+                result = _run_tool(tool_call)
+                messages.append(HumanMessage(content=f"Tool result for {tool_call['tool']}:\n{result}"))
+                continue
+            return f"Agent error: {err}"
 
         content = response.content if isinstance(response.content, str) else str(response.content)
+        messages.append(AIMessage(content=content))
 
-        # ── Try native tool calls first (works with gpt-oss, newer models) ──
-        native_calls = _extract_native_tool_calls(response)
+        tool_call = _extract_tool_call(content)
+        if not tool_call:
+            return content.strip() or "Done."
 
-        if native_calls:
-            messages.append(response)  # append AIMessage with tool_calls
-            all_results = []
+        result = _run_tool(tool_call)
+        messages.append(HumanMessage(content=f"Tool result for {tool_call['tool']}:\n{result}"))
 
-            for tc in native_calls:
-                name    = tc["name"]
-                args    = tc["args"]
-                tool_id = tc["id"]
-                tool_fn = TOOLS.get(name)
+    return "I reached the maximum steps. Please try again."
 
-                if tool_fn:
-                    try:
-                        result = tool_fn.invoke(args)
-                    except Exception as e:
-                        result = f"Tool error: {e}"
-                else:
-                    result = f"Unknown tool: {name}"
 
-                all_results.append(result)
-                # Add ToolMessage for each tool call (required by LangChain)
-                messages.append(ToolMessage(content=str(result), tool_call_id=tool_id))
+def _run_tool(tool_call: dict) -> str:
+    """Execute a tool call and return the result string."""
+    name    = tool_call.get("tool", "")
+    args    = tool_call.get("args", {})
+    tool_fn = TOOLS.get(name)
+    if tool_fn:
+        try:
+            return tool_fn.invoke(args)
+        except Exception as e:
+            return f"Tool error: {e}"
+    return f"Unknown tool: {name}"
 
-            continue  # Let LLM generate final answer using tool results
 
-        # ── Fallback: plain JSON in text (older approach) ──
-        json_call = _extract_json_tool_call(content)
+def _extract_tool_call_from_error(error_str: str) -> dict | None:
+    """
+    When the model sends a native tool call that Groq rejects,
+    the error message contains the JSON in 'failed_generation'.
+    Parse it from there.
+    """
+    # Look for JSON in the error string
+    match = re.search(r"'failed_generation':\s*'(\{.*?\})'", error_str, re.DOTALL)
+    if not match:
+        match = re.search(r'"failed_generation":\s*"(\{.*?\})"', error_str, re.DOTALL)
+    if match:
+        try:
+            raw = match.group(1).replace("\\'", "'")
+            return _extract_tool_call(raw)
+        except Exception:
+            pass
 
-        if json_call:
-            messages.append(AIMessage(content=content))
-            name    = json_call.get("tool", "")
-            args    = json_call.get("args", {})
-            tool_fn = TOOLS.get(name)
-
-            if tool_fn:
-                try:
-                    result = tool_fn.invoke(args)
-                except Exception as e:
-                    result = f"Tool error: {e}"
-            else:
-                result = f"Unknown tool: {name}"
-
-            messages.append(HumanMessage(content=f"Tool result for {name}:\n{result}"))
-            continue
-
-        # ── No tool call — this is the final answer ──
-        return content.strip() or "I couldn't process that request."
-
-    return "I reached the maximum steps. Please try a more specific question."
+    # Try extracting any JSON from the error string
+    return _extract_tool_call(error_str)
